@@ -13,28 +13,23 @@ import (
 )
 
 func main() {
-
 	ctx := context.Background()
-
-	// Get the project ID from environment variable or GCP compute metadata
 	var projectId string
 	var err error
 	projectId = os.Getenv("GOOGLE_CLOUD_PROJECT")
 	if projectId == "" {
 		projectId, err = metadata.ProjectIDWithContext(ctx)
+		os.Setenv("GOOGLE_CLOUD_PROJECT", projectId)
 		if err != nil {
 			return
 		}
-		os.Setenv("GOOGLE_CLOUD_PROJECT", projectId)
 	}
 
-	// Initialize Vertex AI
-	if err = vertexai.Init(ctx, nil); err != nil {
+	if err := vertexai.Init(ctx, nil); err != nil {
 		log.Fatal(err)
 		return
 	}
 
-	// Create the prompt
 	dotprompt.SetDirectory("./")
 	prompt, err := dotprompt.Open("animal-facts")
 	if err != nil {
@@ -46,6 +41,7 @@ func main() {
 	}
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+
 		animal := r.URL.Query().Get("animal")
 		if animal == "" {
 			animal = "dog"
@@ -60,13 +56,16 @@ func main() {
 			},
 			nil,
 		)
+
 		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
+			w.WriteHeader(http.StatusServiceUnavailable)
 			fmt.Fprint(w, err)
 			return
 		}
+
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		fmt.Fprint(w, response.Text())
+
 	})
 
 	port := os.Getenv("PORT")
@@ -74,7 +73,6 @@ func main() {
 	if port == "" {
 		port = "8080"
 	}
-
 	if err := http.ListenAndServe(":"+port, nil); err != nil {
 		log.Fatal(err)
 	}
